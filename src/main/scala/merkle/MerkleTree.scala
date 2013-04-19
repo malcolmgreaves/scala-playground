@@ -15,20 +15,21 @@ object MerkleTree {
     override val hash: Vector[Byte] = Vector.empty[Byte]
   }
 
-  def calculateRequiredLevel(numberOfDataBlocks: Int): Int = {
+  private def calculateRequiredLevel(numberOfDataBlocks: Int): Int = {
     def log2(x: Double): Double = math.log(x) / math.log(2)
 
     math.ceil(log2(numberOfDataBlocks)).toInt
   }
 
-  def dataHashPairToLeaf[A](dataHashPair: (Vector[Byte], A)): Leaf[A] =
+  private def dataHashPairToLeaf[A](dataHashPair: (Vector[Byte], A)): Leaf[A] =
     Leaf(dataHashPair._1, Some(dataHashPair._2))
 
   @tailrec
-  def makeTree[A](trees: List[Tree[A]]): Tree[A] = {
+  private def makeTree[A](hashFunction: MessageDigest, trees: List[Tree[A]]): Tree[A] = {
     def createParents[A](treePair: List[Tree[A]]): Tree[A] = {
       val child1 :: child2 :: _ = treePair
-      Node(child1.hash ++ child2.hash, child1, child2)
+      val newHash = hashFunction.digest((child1.hash ++ child2.hash).toArray).toVector
+      Node(newHash, child1, child2)
     }
 
     if (trees.size == 0) {
@@ -36,7 +37,7 @@ object MerkleTree {
     } else if (trees.size == 1) {
       trees.head
     } else {
-      makeTree(trees.grouped(2).map(createParents).toList)
+      makeTree(hashFunction, trees.grouped(2).map(createParents).toList)
     }
   }
 
@@ -51,6 +52,6 @@ object MerkleTree {
 
     val leaves = hashedDataBlocks.zip(dataBlocks).map(dataHashPairToLeaf) ++ padding
 
-    makeTree(leaves)
+    makeTree(hashFunction, leaves)
   }
 }

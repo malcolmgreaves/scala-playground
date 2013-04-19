@@ -25,10 +25,10 @@ object MerkleTree {
     Leaf(dataHashPair._1, Some(dataHashPair._2))
 
   @tailrec
-  private def makeTree[A](hashFunction: MessageDigest, trees: List[Tree[A]]): Tree[A] = {
-    def createParents[A](treePair: List[Tree[A]]): Tree[A] = {
-      val child1 :: child2 :: _ = treePair
-      val newHash = hashFunction.digest((child1.hash ++ child2.hash).toArray).toVector
+  private def makeTree[A](trees: Seq[Tree[A]], hashFunction: CryptographicHash): Tree[A] = {
+    def createParents[A](treePair: Seq[Tree[A]]): Tree[A] = {
+      val child1 +: child2 +: _ = treePair
+      val newHash = hashFunction.hash((child1.hash ++ child2.hash))
       Node(newHash, child1, child2)
     }
 
@@ -37,21 +37,21 @@ object MerkleTree {
     } else if (trees.size == 1) {
       trees.head
     } else {
-      makeTree(hashFunction, trees.grouped(2).map(createParents).toList)
+      makeTree(trees.grouped(2).map(createParents).toSeq, hashFunction)
     }
   }
 
-  def create[A](hashFunction: MessageDigest)(dataBlocks: List[A]): Tree[A] = {
+  def create[A](dataBlocks: Seq[A])(implicit hashFunction: CryptographicHash = SHA1Hash): Tree[A] = {
     val level = calculateRequiredLevel(dataBlocks.size)
 
     val hashedDataBlocks =
-      dataBlocks.map(data => hashFunction.digest(data.toString.getBytes).toVector)
+      dataBlocks.map(data => hashFunction.hash(data.toString.getBytes))
 
     val paddingNeeded = math.pow(2, level).toInt - dataBlocks.size
-    val padding = List.fill(paddingNeeded)(EmptyLeaf)
+    val padding = Seq.fill(paddingNeeded)(EmptyLeaf)
 
     val leaves = hashedDataBlocks.zip(dataBlocks).map(dataHashPairToLeaf) ++ padding
 
-    makeTree(hashFunction, leaves)
+    makeTree(leaves, hashFunction)
   }
 }

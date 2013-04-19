@@ -5,13 +5,11 @@ import scala.annotation.tailrec
 import scala.math
 
 object MerkleTree {
-  sealed trait Tree[+A] {
-    def hash: Vector[Byte]
-  }
+  sealed trait Tree[+A] { def hash: Vector[Byte] }
 
   case class Node[+A](hash: Vector[Byte], left: Tree[A], right: Tree[A]) extends Tree[A]
 
-  case class Leaf[+A](data: Option[A], hash: Vector[Byte]) extends Tree[A]
+  case class Leaf[+A](hash: Vector[Byte], data: Option[A]) extends Tree[A]
 
   def calculateRequiredLevel(numberOfDataBlocks: Int): Int = {
     def log2(x: Double): Double = math.log(x) / math.log(2)
@@ -19,8 +17,8 @@ object MerkleTree {
     math.ceil(log2(numberOfDataBlocks)).toInt
   }
 
-  def dataHashPairToLeaf[A](dataHashPair: (A, Vector[Byte])): Leaf[A] =
-    Leaf(Some(dataHashPair._1), dataHashPair._2)
+  def dataHashPairToLeaf[A](dataHashPair: (Vector[Byte], A)): Leaf[A] =
+    Leaf(dataHashPair._1, Some(dataHashPair._2))
 
   @tailrec
   def makeTree[A](trees: List[Tree[A]]): Tree[A] = {
@@ -43,9 +41,9 @@ object MerkleTree {
       dataBlocks.map(data => hashFunction.digest(data.toString.getBytes).toVector)
 
     val paddingNeeded = math.pow(2, level).toInt - dataBlocks.size
-    val padding = List.fill(paddingNeeded)(Leaf(None, Vector.empty[Byte]))
+    val padding = List.fill(paddingNeeded)(Leaf(Vector.empty[Byte], None))
 
-    val leaves = dataBlocks.zip(hashedDataBlocks).map(dataHashPairToLeaf) ++ padding
+    val leaves = hashedDataBlocks.zip(dataBlocks).map(dataHashPairToLeaf) ++ padding
 
     makeTree(leaves)
   }

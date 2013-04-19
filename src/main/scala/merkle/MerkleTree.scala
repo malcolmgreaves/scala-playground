@@ -11,6 +11,10 @@ object MerkleTree {
 
   case class Leaf[+A](hash: Vector[Byte], data: Option[A]) extends Tree[A]
 
+  case object EmptyLeaf extends Tree[Nothing] {
+    override val hash: Vector[Byte] = Vector.empty[Byte]
+  }
+
   def calculateRequiredLevel(numberOfDataBlocks: Int): Int = {
     def log2(x: Double): Double = math.log(x) / math.log(2)
 
@@ -35,16 +39,20 @@ object MerkleTree {
   }
 
   def create[A](hashFunction: MessageDigest)(dataBlocks: List[A]): Tree[A] = {
-    val level = calculateRequiredLevel(dataBlocks.size)
+    if (dataBlocks.size == 0) {
+      EmptyLeaf
+    } else {
+      val level = calculateRequiredLevel(dataBlocks.size)
 
-    val hashedDataBlocks =
-      dataBlocks.map(data => hashFunction.digest(data.toString.getBytes).toVector)
+      val hashedDataBlocks =
+        dataBlocks.map(data => hashFunction.digest(data.toString.getBytes).toVector)
 
-    val paddingNeeded = math.pow(2, level).toInt - dataBlocks.size
-    val padding = List.fill(paddingNeeded)(Leaf(Vector.empty[Byte], None))
+      val paddingNeeded = math.pow(2, level).toInt - dataBlocks.size
+      val padding = List.fill(paddingNeeded)(EmptyLeaf)
 
-    val leaves = hashedDataBlocks.zip(dataBlocks).map(dataHashPairToLeaf) ++ padding
+      val leaves = hashedDataBlocks.zip(dataBlocks).map(dataHashPairToLeaf) ++ padding
 
-    makeTree(leaves)
+      makeTree(leaves)
+    }
   }
 }

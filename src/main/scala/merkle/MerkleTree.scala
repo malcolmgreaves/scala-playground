@@ -31,7 +31,9 @@ object MerkleTree {
       Node(child1.hash ++ child2.hash, child1, child2)
     }
 
-    if (trees.size == 1) {
+    if (trees.size == 0) {
+      EmptyLeaf
+    } else if (trees.size == 1) {
       trees.head
     } else {
       makeTree(trees.grouped(2).map(createParents).toList)
@@ -39,20 +41,16 @@ object MerkleTree {
   }
 
   def create[A](hashFunction: MessageDigest)(dataBlocks: List[A]): Tree[A] = {
-    if (dataBlocks.size == 0) {
-      EmptyLeaf
-    } else {
-      val level = calculateRequiredLevel(dataBlocks.size)
+    val level = calculateRequiredLevel(dataBlocks.size)
 
-      val hashedDataBlocks =
-        dataBlocks.map(data => hashFunction.digest(data.toString.getBytes).toVector)
+    val hashedDataBlocks =
+      dataBlocks.map(data => hashFunction.digest(data.toString.getBytes).toVector)
 
-      val paddingNeeded = math.pow(2, level).toInt - dataBlocks.size
-      val padding = List.fill(paddingNeeded)(EmptyLeaf)
+    val paddingNeeded = math.pow(2, level).toInt - dataBlocks.size
+    val padding = List.fill(paddingNeeded)(EmptyLeaf)
 
-      val leaves = hashedDataBlocks.zip(dataBlocks).map(dataHashPairToLeaf) ++ padding
+    val leaves = hashedDataBlocks.zip(dataBlocks).map(dataHashPairToLeaf) ++ padding
 
-      makeTree(leaves)
-    }
+    makeTree(leaves)
   }
 }

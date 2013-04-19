@@ -1,37 +1,51 @@
 package merkle
 
-import java.security.MessageDigest
 import scala.annotation.tailrec
 import scala.math
 
 object MerkleTree {
-  sealed trait Tree[+A] { def hash: Vector[Byte] }
+  sealed trait Tree[+A, Hash <: CryptographicHash] { val hash: Vector[Byte] }
 
-  case class Node[+A](hash: Vector[Byte], left: Tree[A], right: Tree[A]) extends Tree[A]
+  case class Node[+A, Hash <: CryptographicHash](
+    leftChild: Tree[A, Hash],
+    rightChild: Tree[A, Hash],
+    hashFunction: Hash)
+      extends Tree[A, Hash] {
 
-  case class Leaf[+A](hash: Vector[Byte], data: Option[A]) extends Tree[A]
+    override val hash: Vector[Byte] =
+      hashFunction.hash(leftChild.hash ++ rightChild.hash)
+  }
 
-  case object EmptyLeaf extends Tree[Nothing] {
+  case class Leaf[+A, Hash <: CryptographicHash](data: A, hashFunction: Hash)
+      extends Tree[A, Hash] {
+
+    override val hash: Vector[Byte] = hashFunction.hash(data.toString.getBytes)
+  }
+
+  case class EmptyLeaf[Hash <: CryptographicHash](hashFunction: Hash) extends Tree[Nothing, Hash] {
     override val hash: Vector[Byte] = Vector.empty[Byte]
   }
 
-  def create[A](dataBlocks: Seq[A])(implicit hashFunction: CryptographicHash = SHA1Hash): Tree[A] = {
+  def create[A, Hash <: CryptographicHash](
+    dataBlocks: Seq[A],
+    hashFunction: Hash = SHA1Hash): Tree[A, Hash] = {
     val level = calculateRequiredLevel(dataBlocks.size)
 
-    val hashedDataBlocks =
-      dataBlocks.map(data => hashFunction.hash(data.toString.getBytes))
+    val dataLeaves = dataBlocks.map(data => Leaf(data, hashFunction))
 
     val paddingNeeded = math.pow(2, level).toInt - dataBlocks.size
-    val padding = Seq.fill(paddingNeeded)(EmptyLeaf)
+    val padding = Seq.fill(paddingNeeded)(EmptyLeaf(hashFunction))
 
-    val leaves = hashedDataBlocks.zip(dataBlocks).map(dataHashPairToLeaf) ++ padding
+    val leaves = dataLeaves ++ padding
 
     makeTree(leaves, hashFunction)
   }
 
-  def merge[A](leftChild: Tree[A], rightChild: Tree[A])(implicit hashFunction: CryptographicHash = SHA1Hash): Node[A] = {
-    val newHash = hashFunction.hash((leftChild.hash ++ rightChild.hash))
-    Node(newHash, leftChild, rightChild)
+  def merge[A, Hash <: CryptographicHash](
+    leftChild: Tree[A, Hash],
+    rightChild: Tree[A, Hash],
+    hashFunction: Hash): Node[A, Hash] = {
+    Node(leftChild, rightChild, hashFunction)
   }
 
   private def calculateRequiredLevel(numberOfDataBlocks: Int): Int = {
@@ -40,18 +54,17 @@ object MerkleTree {
     math.ceil(log2(numberOfDataBlocks)).toInt
   }
 
-  private def dataHashPairToLeaf[A](dataHashPair: (Vector[Byte], A)): Leaf[A] =
-    Leaf(dataHashPair._1, Some(dataHashPair._2))
-
   @tailrec
-  private def makeTree[A](trees: Seq[Tree[A]], hashFunction: CryptographicHash): Tree[A] = {
-    def createParents[A](treePair: Seq[Tree[A]]): Node[A] = {
+  private def makeTree[A, Hash <: CryptographicHash](
+    trees: Seq[Tree[A, Hash]],
+    hashFunction: Hash): Tree[A, Hash] = {
+    def createParents(treePair: Seq[Tree[A, Hash]]): Node[A, Hash] = {
       val leftChild +: rightChild +: _ = treePair
-      merge(leftChild, rightChild)(hashFunction)
+      merge(leftChild, rightChild, hashFunction)
     }
 
     if (trees.size == 0) {
-      EmptyLeaf
+      EmptyLeaf(hashFunction)
     } else if (trees.size == 1) {
       trees.head
     } else {

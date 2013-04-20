@@ -8,21 +8,20 @@ object MerkleTree {
 
   case class Node[+A, Hash <: CryptographicHash](
     leftChild: Tree[A, Hash],
-    rightChild: Tree[A, Hash],
-    hashFunction: Hash)
+    rightChild: Tree[A, Hash])(hashFunction: Hash)
       extends Tree[A, Hash] {
 
     override val hash: Vector[Byte] =
       hashFunction.hash(leftChild.hash ++ rightChild.hash)
   }
 
-  case class Leaf[+A, Hash <: CryptographicHash](data: A, hashFunction: Hash)
+  case class Leaf[+A, Hash <: CryptographicHash](data: A)(hashFunction: Hash)
       extends Tree[A, Hash] {
 
     override val hash: Vector[Byte] = hashFunction.hash(data.toString.getBytes)
   }
 
-  case class EmptyLeaf[Hash <: CryptographicHash](hashFunction: Hash) extends Tree[Nothing, Hash] {
+  case class EmptyLeaf[Hash <: CryptographicHash]()(hashFunction: Hash) extends Tree[Nothing, Hash] {
     override val hash: Vector[Byte] = Vector.empty[Byte]
   }
 
@@ -31,10 +30,10 @@ object MerkleTree {
     hashFunction: Hash = SHA1Hash): Tree[A, Hash] = {
     val level = calculateRequiredLevel(dataBlocks.size)
 
-    val dataLeaves = dataBlocks.map(data => Leaf(data, hashFunction))
+    val dataLeaves = dataBlocks.map(data => Leaf(data)(hashFunction))
 
     val paddingNeeded = math.pow(2, level).toInt - dataBlocks.size
-    val padding = Seq.fill(paddingNeeded)(EmptyLeaf(hashFunction))
+    val padding = Seq.fill(paddingNeeded)(EmptyLeaf()(hashFunction))
 
     val leaves = dataLeaves ++ padding
 
@@ -45,7 +44,7 @@ object MerkleTree {
     leftChild: Tree[A, Hash],
     rightChild: Tree[A, Hash],
     hashFunction: Hash): Node[A, Hash] = {
-    Node(leftChild, rightChild, hashFunction)
+    Node(leftChild, rightChild)(hashFunction)
   }
 
   private def calculateRequiredLevel(numberOfDataBlocks: Int): Int = {
@@ -64,7 +63,7 @@ object MerkleTree {
     }
 
     if (trees.size == 0) {
-      EmptyLeaf(hashFunction)
+      EmptyLeaf()(hashFunction)
     } else if (trees.size == 1) {
       trees.head
     } else {

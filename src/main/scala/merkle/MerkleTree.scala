@@ -58,7 +58,7 @@ object MerkleTree {
   private def makeTree[A, Hash <: CryptographicHash](
     trees: Seq[Tree[A, Hash]],
     hashFunction: Hash): Tree[A, Hash] = {
-    def createParents(treePair: Seq[Tree[A, Hash]]): Node[A, Hash] = {
+    def createParent(treePair: Seq[Tree[A, Hash]]): Node[A, Hash] = {
       val leftChild +: rightChild +: _ = treePair
       merge(leftChild, rightChild, hashFunction)
     }
@@ -68,7 +68,7 @@ object MerkleTree {
     } else if (trees.size == 1) {
       trees.head
     } else {
-      makeTree(trees.grouped(2).map(createParents).toSeq, hashFunction)
+      makeTree(trees.grouped(2).map(createParent).toSeq, hashFunction)
     }
   }
 }
